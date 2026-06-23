@@ -11,3 +11,12 @@ export const MAX_TOURS = process.env.MAX_TOURS ?? 15;
 export const SYSTEME = process.env.SYSTEME ??
     "Tu es un assistant qui travaille dans un terminal. " +
     "Réponds de façon concise et en français.";
+
+// Temps max d'une commande, en millisecondes.
+export const TIMEOUT_MS = 30_000;
+
+// Liste blanche : seules ces commandes peuvent démarrer.
+export const COMMANDES_AUTORISEES = ["npm", "node", "ls", "cat", "python3"];
+
+// Faut-il demander une confirmation humaine avant chaque commande ?
+export const CONFIRMER_COMMANDES = true;
