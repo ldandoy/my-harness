@@ -1,21 +1,6 @@
-import { ollama } from "./ollama";
-import { MODEL, SYSTEME } from "./config";
+import { lancerAgent } from "./agent";
 
-async function main() {
-    const question = process.argv.slice(2).join(" ") || "Dis-moi bonjour.";
-    console.log(`🙋 ${question}\n`);
+const tache = process.argv.slice(2).join(" ") || "Qu'y a-t-il dans le dossier courant ?";
 
-    const reponse = await ollama.chat({
-        model: MODEL,
-        messages: [
-            { role: "system", content: SYSTEME },
-            { role: "user", content: question },
-        ],
-    });
-
-    console.log(`🤖 ${reponse.message.content}`);
-}
-
-main();
-
-
+console.log(`🎯 ${tache}`);
+lancerAgent(tache);
