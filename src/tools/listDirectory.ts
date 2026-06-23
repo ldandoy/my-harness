@@ -1,5 +1,4 @@
 import { readdir } from "node:fs/promises";
-import { resolve } from "node:path";
 import type { Tool } from "./types";
 import { resoudre } from "./sandbox";
 
@@ -16,7 +15,7 @@ export const listDirectory: Tool = {
     },
 
     async run(args) {
-        const cible = resolve(args.path ?? ".");
+        const cible = resoudre(args.path ?? ".");
         const entrees = await readdir(cible, { withFileTypes: true });
 
         if (entrees.length === 0) return "(dossier vide)";
