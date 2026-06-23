@@ -6,7 +6,7 @@
 
 ![Node](https://img.shields.io/badge/node-%3E%3D24-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![CI](https://github.com/TON_USER/my-harness/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/ldandoy/my-harness/actions/workflows/ci.yml/badge.svg)
 
 </div>
 
