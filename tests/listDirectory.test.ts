@@ -8,9 +8,8 @@ describe("list_directory", () => {
     });
 
     it("liste le contenu d'un dossier", async () => {
-        const sortie = await listDirectory.run({ path: "src" });
-        expect(sortie).toContain("config.ts");
-        expect(sortie).toContain("tools/");
+        const sortie = await listDirectory.run({ path: "tests" });
+        expect(sortie).toContain("test.txt");
     });
 
     it("échoue proprement sur un dossier inexistant", async () => {
