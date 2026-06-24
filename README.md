@@ -51,7 +51,9 @@ Créé automatiquement au premier « Toujours autoriser », ou manuellement.
 ## Roadmap
 
 - [x] Commandes autorisées dans un fichier JSON externe
-- [ ] Restructurer `src/tools/` — `registry.ts` au niveau `src/`
+- [x] Restructurer `src/tools/` — `registry.ts` au niveau `src/`
+- [ ] Restructurer les `types`dans un répertoire
+- [ ] Ajouter une interface graphique avec Ink
 - [ ] Streaming des réponses du modèle
 
 ## Licence
