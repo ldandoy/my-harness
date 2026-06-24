@@ -52,8 +52,8 @@ Créé automatiquement au premier « Toujours autoriser », ou manuellement.
 
 - [x] Commandes autorisées dans un fichier JSON externe
 - [x] Restructurer `src/tools/` — `registry.ts` au niveau `src/`
-- [ ] Restructurer les `types`dans un répertoire
-- [ ] Ajouter une interface graphique avec Ink
+- [x] Restructurer les `types`dans un répertoire
+- [x] Ajouter une interface graphique avec Ink
 - [ ] Streaming des réponses du modèle
 
 ## Licence
