@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx src/index.ts",
+    "dev": "tsx src/index.tsx",
     "test": "vitest run"
   },
   "keywords": [],
@@ -12,10 +12,15 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "ollama": "^0.6.3"
+    "@inkjs/ui": "^2.0.0",
+    "ink": "^7.1.0",
+    "ink-select-input": "^6.2.0",
+    "ollama": "^0.6.3",
+    "react": "^19.2.7"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",
+    "@types/react": "^19.2.17",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"

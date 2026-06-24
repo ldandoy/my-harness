@@ -1,10 +1,18 @@
 // src/tools/security/garde-fou.ts
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
-import { createInterface } from "node:readline/promises";
 import { WORKSPACE } from "../security/sandbox";
+import type { ConfirmChoice } from "../../types";
+
+type OnConfirmFn = (prog: string) => Promise<ConfirmChoice>;
 
 const HARNESS_PATH = resolve(WORKSPACE, ".harness/settings.json");
+
+let _onConfirm: OnConfirmFn | undefined;
+
+export function setOnConfirm(fn: OnConfirmFn | undefined): void {
+    _onConfirm = fn;
+}
 
 function chargerAutorisees(): string[] {
     if (!existsSync(HARNESS_PATH)) return [];   // fichier ou dossier absent → liste vide
@@ -23,23 +31,13 @@ export function estAutorisee(prog: string, autorisees: string[]): boolean {
     return autorisees.includes(prog);
 }
 
-export async function verifierCommande(commande: string): Promise<"ok" | "refuse"> {
-    const prog = commande.trim().split(/\s+/)[0];
+export async function verifierCommande(prog: string): Promise<void> {
     const autorisees = chargerAutorisees();
+    if (estAutorisee(prog, autorisees)) return;
 
-    if (estAutorisee(prog, autorisees)) return "ok";    // déjà dans harness.json → direct
+    const choix: ConfirmChoice = await _onConfirm!(prog);
 
-    const rl = createInterface({ input: process.stdin, output: process.stdout });
-    const rep = await rl.question(
-        `\n⚠️  « ${prog} » n'est pas autorisée.\n` +
-        `   [1] Accepter une fois  [2] Toujours autoriser  [3] Refuser\n> `
-    );
-    rl.close();
-
-    if (rep.trim() === "2") {
-        sauvegarderAutorisees([...autorisees, prog]);
-        console.log(`   ✅ « ${prog} » ajoutée à harness.json`);
-        return "ok";
-    }
-    return rep.trim() === "1" ? "ok" : "refuse";  // tout le reste → refus
+    if (choix === "never") throw new Error(`Commande "${prog}" refusée.`);
+    if (choix === "always") sauvegarderAutorisees([...autorisees, prog]);
+    // "once" → on laisse passer sans sauvegarder
 }
