@@ -1,7 +1,7 @@
 import { writeFile as ecrireFichier, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { Tool } from "./types";
-import { resoudre } from "./sandbox";
+import { resoudre } from "./security/sandbox";
 
 export const writeFile: Tool = {
     name: "write_file",

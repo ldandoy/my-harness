@@ -1,8 +1,8 @@
-import type { Tool } from "./types";
-import { listDirectory } from "./listDirectory";
-import { readFile } from "./readFile";
-import { writeFile } from "./writeFile";
-import { runCommand } from "./runCommand";
+import type { Tool } from "./tools/types";
+import { listDirectory } from "./tools/listDirectory";
+import { readFile } from "./tools/readFile";
+import { writeFile } from "./tools/writeFile";
+import { runCommand } from "./tools/runCommand";
 
 // 1. La liste de tous les outils. Ajouter un outil = ajouter une ligne ici.
 export const TOOLS: Tool[] = [listDirectory, readFile, writeFile, runCommand];

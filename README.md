@@ -41,13 +41,18 @@ npm run dev "Lance les tests et corrige le code si ça échoue."
 - `write_file` Écrit un fichier dans le workspace
 - `run_command` Exécute une commande (liste blanche + confirm.)
 
+## .harness/settings.json
+
+`.harness/settings.json` stocke tes permissions de commandes entre les sessions.
+Créé automatiquement au premier « Toujours autoriser », ou manuellement.
+
+> **À ajouter dans `.gitignore`** : les permissions sont propres à chaque dev.
+
 ## Roadmap
 
-- [ ] Commandes autorisées dans un fichier JSON externe
-- [ ] Streaming des réponses du modèle
-- [ ] Support multi-modèles (OpenAI-compatible)
+- [x] Commandes autorisées dans un fichier JSON externe
 - [ ] Restructurer `src/tools/` — `registry.ts` au niveau `src/`
-- [ ] Interface web légère
+- [ ] Streaming des réponses du modèle
 
 ## Licence
 

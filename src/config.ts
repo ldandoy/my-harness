@@ -14,9 +14,3 @@ export const SYSTEME = process.env.SYSTEME ??
 
 // Temps max d'une commande, en millisecondes.
 export const TIMEOUT_MS = 30_000;
-
-// Liste blanche : seules ces commandes peuvent démarrer.
-export const COMMANDES_AUTORISEES = ["npm", "node", "ls", "cat", "python3"];
-
-// Faut-il demander une confirmation humaine avant chaque commande ?
-export const CONFIRMER_COMMANDES = true;

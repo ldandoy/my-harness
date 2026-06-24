@@ -1,7 +1,7 @@
 import type { Message } from "ollama";
 import { ollama } from "./ollama";
 import { MODEL, SYSTEME, MAX_TOURS } from "./config";
-import { trouverOutil, schemasOllama } from "./tools/registry";
+import { trouverOutil, schemasOllama } from "./registry";
 import { truncate } from "./format";
 
 export async function lancerAgent(tache: string): Promise<void> {

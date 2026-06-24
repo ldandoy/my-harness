@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { mkdir, writeFile as fsWrite, rm } from "node:fs/promises";
 import { listDirectory } from "../src/tools/listDirectory";
-import { resoudre } from "../src/tools/sandbox";
+import { resoudre } from "../src/tools/security/sandbox";
 
 describe("list_directory", () => {
     it("expose un nom et une description", () => {

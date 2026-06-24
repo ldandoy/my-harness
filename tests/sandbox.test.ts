@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resoudre, WORKSPACE } from "../src/tools/sandbox";
+import { resoudre, WORKSPACE } from "../src/tools/security/sandbox";
 
 describe("resoudre (sandbox)", () => {
     it("accepte un chemin dans le workspace", () => {

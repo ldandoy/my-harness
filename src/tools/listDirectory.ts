@@ -1,6 +1,6 @@
 import { readdir } from "node:fs/promises";
 import type { Tool } from "./types";
-import { resoudre } from "./sandbox";
+import { resoudre } from "./security/sandbox";
 
 export const listDirectory: Tool = {
     name: "list_directory",

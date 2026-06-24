@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { rm } from "node:fs/promises";
 import { writeFile } from "../src/tools/writeFile";
 import { readFile } from "../src/tools/readFile";
-import { resoudre } from "../src/tools/sandbox";
+import { resoudre } from "../src/tools/security/sandbox";
 
 describe("write_file & read_file", () => {
     it("écrit puis relit un fichier", async () => {
