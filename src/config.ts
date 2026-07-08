@@ -1,5 +1,5 @@
 // Le modèle Ollama qu'on utilise (surchargeable par variable d'env).
-export const MODEL = process.env.MY_HARNESS_MODEL ?? "qwen2.5";
+export let MODEL = process.env.MY_HARNESS_MODEL ?? "qwen2.5";
 
 // Où écoute le serveur Ollama local.
 export const OLLAMA_HOST = process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434";
@@ -14,3 +14,5 @@ export const SYSTEME = process.env.SYSTEME ??
 
 // Temps max d'une commande, en millisecondes.
 export const TIMEOUT_MS = 30_000;
+
+export function setModel(m: string): void { MODEL = m; }

@@ -11,7 +11,7 @@ const CB_CONSOLE: AgentCallbacks = {
     onTour: n => console.log(`\n===== TOUR ${n} =====`),
     onTool: (n, a) => console.log(`🔧 ${n}(${JSON.stringify(a)})`),
     onResponse: t => console.log(`\n🤖 ${t}`),
-    onConfirm: async prog => {   // ← readline uniquement en mode CLI sans UI
+    onConfirm: async prog => {
         const rl = createInterface({ input: process.stdin, output: process.stdout });
         const r = await rl.question(`Autoriser "${prog}" ? [1=once/2=always/3=refuse] `);
         rl.close();
@@ -21,7 +21,7 @@ const CB_CONSOLE: AgentCallbacks = {
 
 export async function lancerAgent(
     tache: string,
-    cb: AgentCallbacks = CB_CONSOLE   // ← défaut = ancien comportement console
+    cb: AgentCallbacks = CB_CONSOLE
 ): Promise<void> {
     setOnConfirm(cb.onConfirm);
 
@@ -34,11 +34,11 @@ export async function lancerAgent(
         cb.onTour?.(tour);
 
         const reponse = await ollama.chat({ model: MODEL, messages, tools: schemasOllama() });
-        messages.push(reponse.message);          // on garde la réponse dans l'historique
+        messages.push(reponse.message);
 
         const appels = reponse.message.tool_calls ?? [];
 
-        if (appels.length === 0) {               // pas d'outil → il a fini
+        if (appels.length === 0) {
             cb.onResponse?.(reponse.message.content);
             return;
         }
@@ -56,10 +56,9 @@ export async function lancerAgent(
             }
             cb.onTool?.(name, args);
 
-            // Le résultat repart au modèle dans un message "tool"
             messages.push({ role: "tool", content: sortie });
         }
-    } // fin de la boucle for
+    }
 
     cb.onResponse?.("Nombre maximum de tours atteint.");
 }

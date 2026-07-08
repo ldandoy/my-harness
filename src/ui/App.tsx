@@ -6,6 +6,7 @@ import { Header } from "./Header";
 import { Messages } from "./Messages";
 import { lancerAgent } from "../agent";
 import type { Ligne, ConfirmChoice } from "../types";
+import { ModelPicker } from "./commands/ModelPicker";
 
 export function App() {
     const [lignes, setLignes] = useState<Ligne[]>([]);
@@ -14,6 +15,7 @@ export function App() {
         prog: string;
         resolve: (v: ConfirmChoice) => void;
     } | null>(null);
+    const [showModelPicker, setShowModelPicker] = useState(false);
 
     function demanderChoix(prog: string): Promise<ConfirmChoice> {
         return new Promise(resolve => setConfirmState({ prog, resolve }));
@@ -23,7 +25,10 @@ export function App() {
         setLignes(prev => [...prev, { role, text }]);
 
     async function soumettre(tache: string) {
-        if (!tache.trim() || enCours) return;
+        if (tache.trim() === "/models") {
+            setShowModelPicker(true);
+            return;
+        }
         ajouter("user", `❯ ${tache}`);
         setEnCours(true);
         await lancerAgent(tache, {
@@ -40,14 +45,20 @@ export function App() {
             <Header />
             <Messages lignes={lignes} enCours={enCours} />
 
-            {!enCours && (
+            {!enCours && !showModelPicker && (
                 <Box marginTop={1}>
                     <Text color="cyan">❯ </Text>
-                    <TextInput
-                        placeholder="Quelle est ta prochaine tâche ?"
-                        onSubmit={soumettre}
-                    />
+                    <TextInput placeholder="Quelle est ta prochaine tâche ?" onSubmit={soumettre} />
                 </Box>
+            )}
+
+            {showModelPicker && (
+                <ModelPicker
+                    onDone={modele => {
+                        ajouter("tool", `✓ Modèle changé : ${modele}`);
+                        setShowModelPicker(false);
+                    }}
+                />
             )}
 
             {confirmState && (
