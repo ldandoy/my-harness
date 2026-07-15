@@ -5,6 +5,7 @@ import { MODEL, SYSTEME, MAX_TOURS } from "./config";
 import { trouverOutil, schemasOllama } from "./registry";
 import type { AgentCallbacks } from "./types";
 import { setOnConfirm } from "./tools/security/garde-fou";
+import { chargerSkills } from "./skills";
 
 // Fallback console (mode CLI sans UI)
 const CB_CONSOLE: AgentCallbacks = {
@@ -24,9 +25,19 @@ export async function lancerAgent(
     cb: AgentCallbacks = CB_CONSOLE
 ): Promise<void> {
     setOnConfirm(cb.onConfirm);
+    const skills = await chargerSkills(".harness/skills");
+
+    const skillsBlock = skills.length
+        ? `\n\n## Skills disponibles\n` +
+        skills.map(s =>
+            `### ${s.trigger} — ${s.description}\n${s.instructions}`
+        ).join("\n\n")
+        : "";
+
+    const system = `${SYSTEME} ${skillsBlock}`;
 
     const messages: Message[] = [
-        { role: "system", content: SYSTEME },
+        { role: "system", content: system },
         { role: "user", content: tache },
     ];
 
