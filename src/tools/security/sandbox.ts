@@ -1,7 +1,11 @@
 import { resolve, relative, isAbsolute } from "node:path";
 
 // Le bac à sable : l'agent ne peut RIEN toucher en dehors.
-export const WORKSPACE = resolve("workspace");
+export let WORKSPACE = resolve("workspace");
+
+export function setWorkspace(dirPath: string): void {
+    WORKSPACE = resolve(dirPath);  // ← met à jour la live binding ESM
+}
 
 // Résout un chemin DANS le workspace — et refuse les évasions (../../).
 export function resoudre(chemin: string): string {

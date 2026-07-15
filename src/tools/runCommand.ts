@@ -3,10 +3,8 @@ import { promisify } from "node:util";
 import type { Tool } from "./types";
 import { TIMEOUT_MS } from "../config";
 import { verifierCommande } from "./security/garde-fou";
-import { resolve } from "node:path";
+import { WORKSPACE } from "./security/sandbox";
 
-
-export const WORKSPACE = resolve("workspace");
 const exec = promisify(execCallback);   // exec passe par le shell
 
 export const runCommand: Tool = {

@@ -6,6 +6,7 @@ import { trouverOutil, schemasOllama } from "./registry";
 import type { AgentCallbacks } from "./types";
 import { setOnConfirm } from "./tools/security/garde-fou";
 import { chargerSkills } from "./skills";
+import { log } from "./logger";
 
 // Fallback console (mode CLI sans UI)
 const CB_CONSOLE: AgentCallbacks = {
@@ -24,8 +25,10 @@ export async function lancerAgent(
     tache: string,
     cb: AgentCallbacks = CB_CONSOLE
 ): Promise<void> {
+    log(`lancerAgent() — "${tache}"`);
     setOnConfirm(cb.onConfirm);
-    const skills = await chargerSkills(".harness/skills");
+    const skills = await chargerSkills(".my-harness/skills");
+    log(`skills : ${skills.length} — ${skills.map(s => s.trigger).join(", ") || "aucun"}`);
 
     const skillsBlock = skills.length
         ? `\n\n## Skills disponibles\n` +
@@ -35,6 +38,7 @@ export async function lancerAgent(
         : "";
 
     const system = `${SYSTEME} ${skillsBlock}`;
+    log(`system prompt (${system.length} chars)`);
 
     const messages: Message[] = [
         { role: "system", content: system },
@@ -42,19 +46,23 @@ export async function lancerAgent(
     ];
 
     for (let tour = 1; tour <= Number(MAX_TOURS); tour++) {
+        log(`--- TOUR ${tour} ---`);
         cb.onTour?.(tour);
 
         const reponse = await ollama.chat({ model: MODEL, messages, tools: schemasOllama() });
         messages.push(reponse.message);
 
         const appels = reponse.message.tool_calls ?? [];
+        log(`réponse — ${appels.length} outil(s)`);
 
         if (appels.length === 0) {
+            log(`finale : ${reponse.message.content.slice(0, 80)}`);
             cb.onResponse?.(reponse.message.content);
             return;
         }
 
         for (const appel of appels) {
+            log(`outil : ${appel.function.name}(${JSON.stringify(appel.function.arguments)})`);
             const { name, arguments: args } = appel.function;
             cb.onTool?.(name, args);
 

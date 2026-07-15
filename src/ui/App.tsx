@@ -7,8 +7,10 @@ import { Messages } from "./Messages";
 import { lancerAgent } from "../agent";
 import type { Ligne, ConfirmChoice } from "../types";
 import { ModelPicker } from "./commands/ModelPicker";
+import { log } from "../logger";
+import { Banner } from "./Banner";
 
-export function App() {
+export function App({ workspace }: { workspace: string }) {
     const [lignes, setLignes] = useState<Ligne[]>([]);
     const [enCours, setEnCours] = useState(false);
     const [confirmState, setConfirmState] = useState<{
@@ -25,7 +27,9 @@ export function App() {
         setLignes(prev => [...prev, { role, text }]);
 
     async function soumettre(tache: string) {
+        log(`soumettre() — "${tache}"`);
         if (tache.trim() === "/models") {
+            log("commande /models");
             setShowModelPicker(true);
             return;
         }
@@ -38,11 +42,13 @@ export function App() {
             onConfirm: demanderChoix,
         });
         setEnCours(false);
+        log("lancerAgent() terminé");
     }
 
     return (
         <Box flexDirection="column" padding={1}>
-            <Header />
+            <Banner workspace={workspace} />
+
             <Messages lignes={lignes} enCours={enCours} />
 
             {!enCours && !showModelPicker && (

@@ -1,3 +1,7 @@
+import 'dotenv/config';
+
+export const DEBUG = process.env.DEBUG === "true";
+
 // Le modèle Ollama qu'on utilise (surchargeable par variable d'env).
 export let MODEL = process.env.MY_HARNESS_MODEL ?? "qwen2.5";
 
