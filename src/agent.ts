@@ -7,6 +7,7 @@ import type { AgentCallbacks } from "./types";
 import { setOnConfirm } from "./tools/security/garde-fou";
 import { chargerSkills } from "./skills";
 import { log } from "./logger";
+import { chargerMemoire } from "./commands/remember";
 
 // Fallback console (mode CLI sans UI)
 const CB_CONSOLE: AgentCallbacks = {
@@ -27,17 +28,17 @@ export async function lancerAgent(
 ): Promise<void> {
     log(`lancerAgent() — "${tache}"`);
     setOnConfirm(cb.onConfirm);
-    const skills = await chargerSkills(".my-harness/skills");
+    // const skills = await chargerSkills(".my-harness/skills");
+    const [skills, memoire] = await Promise.all([
+        chargerSkills(".my-harness/skills"),
+        chargerMemoire(".my-harness/memory"),
+    ]);
     log(`skills : ${skills.length} — ${skills.map(s => s.trigger).join(", ") || "aucun"}`);
 
-    const skillsBlock = skills.length
-        ? `\n\n## Skills disponibles\n` +
-        skills.map(s =>
-            `### ${s.trigger} — ${s.description}\n${s.instructions}`
-        ).join("\n\n")
-        : "";
+    const skillsBlock = skills ? `\n## Skills disponibles\n${skills}` : "";
+    const memoireBlock = memoire ? `\n## Mémoire persistante\n${memoire}` : "";
 
-    const system = `${SYSTEME} ${skillsBlock}`;
+    const system = `${SYSTEME} ${skillsBlock} ${memoireBlock}`;
     log(`system prompt (${system.length} chars)`);
 
     const messages: Message[] = [

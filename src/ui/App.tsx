@@ -38,6 +38,11 @@ export function App({ workspace }: { workspace: string }) {
             onConfirm: demanderChoix,
         };
 
+        if (tache.trim() === "/models") {
+            setShowModelPicker(true);
+            return;
+        }
+
         if (await intercepterCommandes(tache, cb)) return;
 
         ajouter("user", `❯ ${tache}`);
