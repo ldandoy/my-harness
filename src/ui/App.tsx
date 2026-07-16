@@ -8,9 +8,11 @@ import type { Ligne, ConfirmChoice } from "../types";
 import { ModelPicker } from "./commands/ModelPicker";
 import { log } from "../logger";
 import { Banner } from "./Banner";
-import { commandePlanifier } from "../commands/planifier";
+import { cmdInit } from "../commands/init";
 import type { AgentCallbacks } from "../types";
 import { intercepterCommandes } from "../commands";
+import { StatusBar } from "./StatusBar";
+import { obtenirInfosEnv } from "./env-info";
 
 export function App({ workspace }: { workspace: string }) {
     const [lignes, setLignes] = useState<Ligne[]>([]);
@@ -20,6 +22,15 @@ export function App({ workspace }: { workspace: string }) {
         resolve: (v: ConfirmChoice) => void;
     } | null>(null);
     const [showModelPicker, setShowModelPicker] = useState(false);
+
+    const [envInfo] = useState(
+        () => obtenirInfosEnv()
+    );
+
+    const [tokens, setTokens]
+        = useState(0);
+    const [maxTokens, setMaxTokens]
+        = useState(4096);
 
     function demanderChoix(prog: string): Promise<ConfirmChoice> {
         return new Promise(resolve => setConfirmState({ prog, resolve }));
@@ -43,6 +54,18 @@ export function App({ workspace }: { workspace: string }) {
             return;
         }
 
+        if (tache.trim() === "/init") {
+            setEnCours(true);
+            await cmdInit({
+                onTour: n => ajouter("tool", `\n===== TOUR ${n} =====`),
+                onTool: (n, a) => ajouter("tool", `🔧 ${n}(${JSON.stringify(a)})`),
+                onResponse: t => ajouter("assistant", `🤖 ${t}`),
+                onConfirm: demanderChoix,
+            });
+            setEnCours(false);
+            return;
+        }
+
         if (await intercepterCommandes(tache, cb)) return;
 
         ajouter("user", `❯ ${tache}`);
@@ -52,6 +75,10 @@ export function App({ workspace }: { workspace: string }) {
             onTool: (n, a) => ajouter("tool", `🔧 ${n}(${JSON.stringify(a)})`),
             onResponse: t => ajouter("agent", `🤖 ${t}`),
             onConfirm: demanderChoix,
+            onTokens: (prompt, _r, max) => {
+                setTokens(prompt); // re-render
+                setMaxTokens(max);
+            },
         });
         setEnCours(false);
         log("lancerAgent() terminé");
@@ -95,6 +122,12 @@ export function App({ workspace }: { workspace: string }) {
                     />
                 </Box>
             )}
+
+            <StatusBar
+                {...envInfo}
+                tokens={tokens}
+                maxTokens={maxTokens}
+            />
         </Box>
     );
 }

@@ -8,6 +8,8 @@ import { setOnConfirm } from "./tools/security/garde-fou";
 import { chargerSkills } from "./skills";
 import { log } from "./logger";
 import { chargerMemoire } from "./commands/remember";
+import { chargerHarnessConfig } from "./commands/init";
+import { compacterContexte } from "./context";
 
 // Fallback console (mode CLI sans UI)
 const CB_CONSOLE: AgentCallbacks = {
@@ -22,6 +24,13 @@ const CB_CONSOLE: AgentCallbacks = {
     },
 };
 
+async function obtenirCtxMax(model: string): Promise<number> {
+    try {
+        const info = await ollama.show({ model });
+        return (info as any).model_info?.["llama.context_length"] ?? 4096;
+    } catch { return 4096; }
+}
+
 export async function lancerAgent(
     tache: string,
     cb: AgentCallbacks = CB_CONSOLE
@@ -29,19 +38,22 @@ export async function lancerAgent(
     log(`lancerAgent() — "${tache}"`);
     setOnConfirm(cb.onConfirm);
     // const skills = await chargerSkills(".my-harness/skills");
-    const [skills, memoire] = await Promise.all([
+    const [skills, memoire, harnessConfig, maxTokens] = await Promise.all([
         chargerSkills(".my-harness/skills"),
         chargerMemoire(".my-harness/memory"),
+        chargerHarnessConfig(),
+        obtenirCtxMax(MODEL),
     ]);
     log(`skills : ${skills.length} — ${skills.map(s => s.trigger).join(", ") || "aucun"}`);
 
     const skillsBlock = skills ? `\n## Skills disponibles\n${skills}` : "";
     const memoireBlock = memoire ? `\n## Mémoire persistante\n${memoire}` : "";
+    const harnessBlock = harnessConfig ? `\n## Configuration du projet\n${harnessConfig}` : "";
 
-    const system = `${SYSTEME} ${skillsBlock} ${memoireBlock}`;
+    const system = `${SYSTEME} ${harnessBlock} ${skillsBlock} ${memoireBlock}`;
     log(`system prompt (${system.length} chars)`);
 
-    const messages: Message[] = [
+    let messages: Message[] = [
         { role: "system", content: system },
         { role: "user", content: tache },
     ];
@@ -57,7 +69,15 @@ export async function lancerAgent(
         log(`réponse — ${appels.length} outil(s)`);
 
         if (appels.length === 0) {
-            log(`finale : ${reponse.message.content.slice(0, 80)}`);
+            cb.onTokens?.(
+                reponse.prompt_eval_count ?? 0,  // ← directement sur la ChatResponse
+                reponse.eval_count ?? 0,
+                maxTokens
+            );
+
+            if ((reponse.prompt_eval_count ?? 0) / maxTokens > 0.75)
+                messages = await compacterContexte(messages);
+
             cb.onResponse?.(reponse.message.content);
             return;
         }

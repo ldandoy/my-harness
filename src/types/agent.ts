@@ -6,6 +6,7 @@ export type AgentCallbacks = {
     onResponse?: (text: string) => void;
     onConfirm?: (prog: string) => Promise<ConfirmChoice>;
     systemPrompt?: string;
+    onTokens?: (prompt: number, response: number, max: number) => void;
 };
 
 export type SousAgent = {  // ← NOUVEAU : structure du plan généré par le LLM
