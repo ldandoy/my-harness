@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Box, Text } from "ink";
 import { TextInput } from "@inkjs/ui";
 import SelectInput from "ink-select-input";
-import { Header } from "./Header";
 import { Messages } from "./Messages";
 import { lancerAgent } from "../agent";
 import type { Ligne, ConfirmChoice } from "../types";
@@ -48,7 +47,6 @@ export function App({ workspace }: { workspace: string }) {
     return (
         <Box flexDirection="column" padding={1}>
             <Banner workspace={workspace} />
-
             <Messages lignes={lignes} enCours={enCours} />
 
             {!enCours && !showModelPicker && (
