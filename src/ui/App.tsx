@@ -8,6 +8,9 @@ import type { Ligne, ConfirmChoice } from "../types";
 import { ModelPicker } from "./commands/ModelPicker";
 import { log } from "../logger";
 import { Banner } from "./Banner";
+import { commandePlanifier } from "../commands/planifier";
+import type { AgentCallbacks } from "../types";
+import { intercepterCommandes } from "../commands";
 
 export function App({ workspace }: { workspace: string }) {
     const [lignes, setLignes] = useState<Ligne[]>([]);
@@ -27,11 +30,16 @@ export function App({ workspace }: { workspace: string }) {
 
     async function soumettre(tache: string) {
         log(`soumettre() — "${tache}"`);
-        if (tache.trim() === "/models") {
-            log("commande /models");
-            setShowModelPicker(true);
-            return;
-        }
+
+        const cb: AgentCallbacks = {
+            onTour: n => ajouter("tool", `\n===== TOUR ${n} =====`),
+            onTool: (n, a) => ajouter("tool", `🔧 ${n}(${JSON.stringify(a)})`),
+            onResponse: t => ajouter("agent", `🤖 ${t}`),
+            onConfirm: demanderChoix,
+        };
+
+        if (await intercepterCommandes(tache, cb)) return;
+
         ajouter("user", `❯ ${tache}`);
         setEnCours(true);
         await lancerAgent(tache, {
