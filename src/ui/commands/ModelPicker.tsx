@@ -23,7 +23,8 @@ export function ModelPicker({ onDone }: Props) {
             <SelectInput
                 items={liste.map(m => ({ label: m, value: m }))}
                 onSelect={item => {
-                    changerModele(item.value);
+                    // La persistance est asynchrone : on ne bloque pas l'UI dessus.
+                    void changerModele(item.value);
                     onDone(item.value);   // ← remonte le modèle choisi à App.tsx
                 }}
             />

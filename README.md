@@ -54,7 +54,10 @@ Créé automatiquement au premier « Toujours autoriser », ou manuellement.
 - [x] Restructurer `src/tools/` — `registry.ts` au niveau `src/`
 - [x] Restructurer les `types`dans un répertoire
 - [x] Ajouter une interface graphique avec Ink
-- [ ] Streaming des réponses du modèle
+- [x] Streaming des réponses du modèle
+- [] Percister le choix du model
+- [x] lorsqu'on tape / démarrer l'auto complétion sur les commandes
+- [x] Modification de l'appel à l'API, pour être compatible openAI v1
 
 ## Licence
 

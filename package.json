@@ -1,19 +1,27 @@
 {
-  "name": "my-harness",
-  "version": "1.0.0",
-  "description": "",
+  "name": "@overconsulting/my-harness",
+  "version": "1.0.1",
+  "description": "CLI pour piloter des agents LLM avec des skills et un contexte",
   "main": "index.js",
   "scripts": {
+    "build": "tsup",
     "dev": "tsx src/index.tsx",
-    "test": "vitest run"
+    "prepublishOnly": "npm run build"
   },
   "bin": {
-    "harness": "src/index.tsx"
+    "my-harness": "./dist/index.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Loïc Dandoy <ldandoy@overconsulting.net>",
+  "license": "MIT",
   "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "dependencies": {
     "@inkjs/ui": "^2.0.0",
     "dotenv": "^17.4.2",
@@ -25,6 +33,7 @@
   "devDependencies": {
     "@types/node": "^26.0.0",
     "@types/react": "^19.2.17",
+    "tsup": "^8.5.1",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"

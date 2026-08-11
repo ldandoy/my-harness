@@ -1,10 +1,14 @@
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { DEBUG } from "./config";
 
-const LOG_FILE = ".my-harness/my-harness.log";
+const LOG_DIR = ".my-harness";
+const LOG_FILE = `${LOG_DIR}/my-harness.log`;
 
 if (DEBUG) {
-    writeFileSync(LOG_FILE, `=== .my-harness/my-harness.log — ${new Date().toISOString()} ===\n`);
+    // Le dossier n'existe pas au premier lancement (il est gitignoré) :
+    // sans ça, writeFileSync plante et l'app ne démarre pas du tout.
+    mkdirSync(LOG_DIR, { recursive: true });
+    writeFileSync(LOG_FILE, `=== ${LOG_FILE} — ${new Date().toISOString()} ===\n`);
 }
 
 export function log(msg: string): void {

@@ -1,9 +1,9 @@
 import { lancerAgent } from "./agent";
-import type { Message } from "ollama";
+import type { MessageLLM } from "./llm";
 
 export async function compacterContexte(
-    messages: Message[]
-): Promise<Message[]> {
+    messages: MessageLLM[]
+): Promise<MessageLLM[]> {
     const [system, ...history] = messages;
     const recent = history.slice(-6);
     const aResumer = history.slice(0, -6);

@@ -1,7 +1,6 @@
-import type { Message } from "ollama";
 import { createInterface } from "node:readline/promises";
-import { ollama } from "./ollama";
-import { MODEL, SYSTEME, MAX_TOURS } from "./config";
+import { chatter, obtenirCtxMax, parserArguments, type MessageLLM } from "./llm";
+import { MODEL, HOST, SYSTEME, MAX_TOURS, CTX_MAX } from "./config";
 import { trouverOutil, schemasOllama } from "./registry";
 import type { AgentCallbacks } from "./types";
 import { setOnConfirm } from "./tools/security/garde-fou";
@@ -12,10 +11,16 @@ import { chargerHarnessConfig } from "./commands/init";
 import { compacterContexte } from "./context";
 
 // Fallback console (mode CLI sans UI)
+let debutReponse = false;
 const CB_CONSOLE: AgentCallbacks = {
-    onTour: n => console.log(`\n===== TOUR ${n} =====`),
+    onTour: n => { debutReponse = false; console.log(`\n===== TOUR ${n} =====`); },
     onTool: (n, a) => console.log(`🔧 ${n}(${JSON.stringify(a)})`),
-    onResponse: t => console.log(`\n🤖 ${t}`),
+    // On écrit les fragments au fil de l'eau ; onResponse ne fait que clore la ligne.
+    onChunk: d => {
+        if (!debutReponse) { process.stdout.write("\n🤖 "); debutReponse = true; }
+        process.stdout.write(d);
+    },
+    onResponse: () => { process.stdout.write("\n"); debutReponse = false; },
     onConfirm: async prog => {
         const rl = createInterface({ input: process.stdin, output: process.stdout });
         const r = await rl.question(`Autoriser "${prog}" ? [1=once/2=always/3=refuse] `);
@@ -23,13 +28,6 @@ const CB_CONSOLE: AgentCallbacks = {
         return r === "2" ? "always" : r === "3" ? "never" : "once";
     },
 };
-
-async function obtenirCtxMax(model: string): Promise<number> {
-    try {
-        const info = await ollama.show({ model });
-        return (info as any).model_info?.["llama.context_length"] ?? 4096;
-    } catch { return 4096; }
-}
 
 export async function lancerAgent(
     tache: string,
@@ -42,7 +40,9 @@ export async function lancerAgent(
         chargerSkills(".my-harness/skills"),
         chargerMemoire(".my-harness/memory"),
         chargerHarnessConfig(),
-        obtenirCtxMax(MODEL),
+        // Plafonné : un modèle annonce souvent bien plus que ce qu'on veut
+        // réellement charger en mémoire.
+        obtenirCtxMax(HOST, MODEL).then(n => Math.min(n, CTX_MAX)),
     ]);
     log(`skills : ${skills.length} — ${skills.map(s => s.trigger).join(", ") || "aucun"}`);
 
@@ -53,7 +53,7 @@ export async function lancerAgent(
     const system = `${SYSTEME} ${harnessBlock} ${skillsBlock} ${memoireBlock}`;
     log(`system prompt (${system.length} chars)`);
 
-    let messages: Message[] = [
+    let messages: MessageLLM[] = [
         { role: "system", content: system },
         { role: "user", content: tache },
     ];
@@ -61,30 +61,36 @@ export async function lancerAgent(
     for (let tour = 1; tour <= Number(MAX_TOURS); tour++) {
         log(`--- TOUR ${tour} ---`);
         cb.onTour?.(tour);
+        log(`MODEL — "${MODEL}" sur ${HOST}`);
 
-        const reponse = await ollama.chat({ model: MODEL, messages, tools: schemasOllama() });
-        messages.push(reponse.message);
+        const { message, promptTokens, completionTokens } = await chatter({
+            url: HOST,
+            modele: MODEL,
+            messages,
+            tools: schemasOllama(),
+            onChunk: cb.onChunk,
+        });
+        messages.push(message);
 
-        const appels = reponse.message.tool_calls ?? [];
+        const appels = message.tool_calls ?? [];
         log(`réponse — ${appels.length} outil(s)`);
 
         if (appels.length === 0) {
-            cb.onTokens?.(
-                reponse.prompt_eval_count ?? 0,  // ← directement sur la ChatResponse
-                reponse.eval_count ?? 0,
-                maxTokens
-            );
+            cb.onTokens?.(promptTokens, completionTokens, maxTokens);
 
-            if ((reponse.prompt_eval_count ?? 0) / maxTokens > 0.75)
+            if (promptTokens / maxTokens > 0.75)
                 messages = await compacterContexte(messages);
 
-            cb.onResponse?.(reponse.message.content);
+            cb.onResponse?.(message.content);
             return;
         }
 
         for (const appel of appels) {
-            log(`outil : ${appel.function.name}(${JSON.stringify(appel.function.arguments)})`);
-            const { name, arguments: args } = appel.function;
+            log(`outil : ${appel.function.name}(${appel.function.arguments})`);
+            const { name } = appel.function;
+            // Côté OpenAI les arguments sont une chaîne JSON, à décoder avant
+            // de les passer à l'outil (et à l'affichage).
+            const args = parserArguments(appel.function.arguments);
             cb.onTool?.(name, args);
 
             const outil = trouverOutil(name);
@@ -94,9 +100,10 @@ export async function lancerAgent(
             } catch (e) {
                 sortie = `ERREUR : ${(e as Error).message}`;
             }
-            cb.onTool?.(name, args);
 
-            messages.push({ role: "tool", content: sortie });
+            // tool_call_id relie le résultat à l'appel : sans lui, les serveurs
+            // compatibles OpenAI rejettent le message.
+            messages.push({ role: "tool", tool_call_id: appel.id, content: sortie });
         }
     }
 

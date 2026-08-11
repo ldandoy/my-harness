@@ -11,7 +11,7 @@ export function StatusBar({ tokens, maxTokens, repertoire, branche }: {
     const color = ratio > 0.75 ? "red" : ratio > 0.5 ? "yellow" : "green";
 
     return (
-        <Box borderStyle="single" borderColor={color} paddingX={2} gap={3}>
+        <Box paddingX={1} gap={3}>
             <Text color="gray">{repertoire}</Text>
             {branche && <Text color="cyan">({branche})</Text>}
             <Text color={color}>{"▓".repeat(filled)}{"░".repeat(20 - filled)}</Text>

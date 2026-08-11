@@ -34,7 +34,10 @@ Réponds UNIQUEMENT avec le JSON.`,
     // Étape 3 — sous-agents spécialisés en parallèle
     await Promise.all(
         plan.map(t =>
-            lancerAgent(t.tache, { ...cb, systemPrompt: t.prompt })
+            // Pas de streaming ici : N agents en parallèle entrelaceraient
+            // leurs fragments dans la même ligne. On garde les réponses
+            // complètes, affichées d'un bloc à la fin de chaque sous-agent.
+            lancerAgent(t.tache, { ...cb, onChunk: undefined, systemPrompt: t.prompt })
         )
     );
 
