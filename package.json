@@ -1,6 +1,6 @@
 {
   "name": "@overconsulting/my-harness",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "CLI pour piloter des agents LLM avec des skills et un contexte",
   "main": "index.js",
   "scripts": {
