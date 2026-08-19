@@ -1,11 +1,12 @@
 {
   "name": "@overconsulting/my-harness",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "CLI pour piloter des agents LLM avec des skills et un contexte",
   "main": "index.js",
   "scripts": {
     "build": "tsup",
     "dev": "tsx src/index.tsx",
+    "test": "vitest run",
     "prepublishOnly": "npm run build"
   },
   "bin": {

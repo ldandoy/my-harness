@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Box, Text, useInput } from "ink";
+import { Box, Text, useInput, useApp } from "ink";
 import { TextInput } from "@inkjs/ui";
 import SelectInput from "ink-select-input";
 import { Messages, ligneVersBloc, type Bloc } from "./Messages";
@@ -18,8 +18,11 @@ import { filtrerCommandes, completion, trouverCommande } from "../commands/liste
 import { serveurActif } from "../serveurs";
 import { MODEL, HOST, CTX_MAX } from "../config";
 import { obtenirCtxMax, type MessageLLM } from "../llm";
+import { formatDuree } from "../format";
 
 export function App({ workspace }: { workspace: string }) {
+    const { exit } = useApp();
+
     // Clés stables pour les blocs static : Ink ne rejoue jamais un bloc déjà
     // écrit, il faut donc une clé unique par ajout, pas l'index dans le tableau.
     const compteurRef = useRef(0);
@@ -61,6 +64,17 @@ export function App({ workspace }: { workspace: string }) {
         setMaxTokens(Math.min(n, CTX_MAX));
     };
     useEffect(() => { void rafraichirMaxTokens(); }, []);
+
+    // Durée de la session : l'horodatage de départ ne bouge jamais, mais il
+    // faut re-rendre régulièrement pour que l'affichage avance même sans
+    // autre activité (streaming, tour…) qui déclencherait un rendu.
+    const debutSessionRef = useRef(Date.now());
+    const [maintenant, setMaintenant] = useState(() => Date.now());
+    useEffect(() => {
+        // Un vrai chrono : on veut le voir avancer seconde par seconde.
+        const id = setInterval(() => setMaintenant(Date.now()), 1_000);
+        return () => clearInterval(id);
+    }, []);
 
     const historiqueRef = useRef<MessageLLM[]>([]);
     const enAttenteRef = useRef<string | null>(null);
@@ -221,6 +235,11 @@ export function App({ workspace }: { workspace: string }) {
             return;
         }
 
+        if (tache.trim() === "/exit") {
+            exit();
+            return;
+        }
+
         // /connect peut changer serveur ET modèle : on rejoue la bannière.
         if (await intercepterCommandes(tache, cb)) { rafraichirEtat(); return; }
 
@@ -228,10 +247,12 @@ export function App({ workspace }: { workspace: string }) {
         setEnCours(true);
         const controller = new AbortController();
         abortRef.current = controller;
+        const debut = Date.now();
         try {
             historiqueRef.current = await lancerAgent(
                 tache, cb, historiqueRef.current, controller.signal
             );
+            ajouter("tool", `⏱️ ${formatDuree(Date.now() - debut)}`);
             terminerTour();
             log("lancerAgent() terminé");
         } catch (e) {
@@ -304,6 +325,7 @@ export function App({ workspace }: { workspace: string }) {
                 tokens={tokens}
                 maxTokens={maxTokens}
                 modele={MODEL}
+                dureeSession={maintenant - debutSessionRef.current}
             />
         </Box>
     );

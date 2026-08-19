@@ -18,7 +18,7 @@ export function ligneVersBloc(cle: string, ligne: Ligne): Bloc {
         return {
             key: cle,
             node: (
-                <Box borderStyle="round" borderColor="cyan" paddingX={1} marginY={1}>
+                <Box borderStyle="round" borderColor="cyan" paddingX={1} marginY={1} width="100%">
                     <Text color="cyan">{ligne.text}</Text>
                 </Box>
             ),

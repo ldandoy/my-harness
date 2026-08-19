@@ -1,13 +1,15 @@
 import React from "react";
 import { Box, Text } from "ink";
 import type { EnvInfo } from "./env-info";
+import { formatDuree } from "../format";
 
-export function StatusBar({ tokens, maxTokens, repertoire, branche, modele }: {
+export function StatusBar({ tokens, maxTokens, repertoire, branche, modele, dureeSession }: {
     tokens: number;
     // null tant que la vraie taille de contexte du modèle n'est pas connue :
     // mieux vaut ne rien afficher qu'un 4096 par défaut trompeur.
     maxTokens: number | null;
     modele: string;
+    dureeSession: number;   // ms depuis le lancement du harness
 } & EnvInfo) {
     const pret = maxTokens !== null;
     const ratio = pret ? Math.min(tokens / maxTokens, 1) : 0;
@@ -34,6 +36,7 @@ export function StatusBar({ tokens, maxTokens, repertoire, branche, modele }: {
             <Box gap={3}>
                 {branche && <Text color="cyan">({branche})</Text>}
                 <Text color="gray">{repertoire}</Text>
+                <Text color="gray">({formatDuree(dureeSession)})</Text>
             </Box>
         </Box>
     );
