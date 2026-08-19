@@ -3,7 +3,7 @@
 // le bon modèle — un nom de modèle n'a aucun sens d'un backend à l'autre.
 
 import { chargerPreferences, sauverPreferences, type Serveur } from "./preferences";
-import { OLLAMA_HOST, setModel, setHost, MODEL } from "./config";
+import { OLLAMA_HOST, setModel, setHost, MODEL, normaliserUrl } from "./config";
 import { log } from "./logger";
 
 export type { Serveur };
@@ -43,7 +43,7 @@ async function persister(): Promise<void> {
 
 // Bascule sur un serveur connu, ou en enregistre un nouveau si `url` est fourni.
 export async function connecter(nom: string, url?: string): Promise<Serveur> {
-    if (url) serveurs[nom] = { ...serveurs[nom], url };
+    if (url) serveurs[nom] = { ...serveurs[nom], url: normaliserUrl(url) };
     const serveur = serveurs[nom];
     if (!serveur) {
         throw new Error(

@@ -5,12 +5,6 @@ export const DEBUG = process.env.DEBUG === "true";
 // Le modèle Ollama qu'on utilise (surchargeable par variable d'env).
 export let MODEL = process.env.MY_HARNESS_MODEL ?? "qwen2.5";
 
-// URL du serveur par défaut (utilisée tant que /connect n'a rien changé).
-export const OLLAMA_HOST = process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434";
-
-// URL réellement utilisée pour les requêtes : /connect la fait varier.
-export let HOST = OLLAMA_HOST;
-
 export function setHost(u: string): void { HOST = u; }
 
 // Garde-fou : on arrêtera la boucle après ce nombre de tours (utile en vidéo 2).
@@ -29,3 +23,12 @@ export const SYSTEME = process.env.SYSTEME ??
 export const TIMEOUT_MS = 30_000;
 
 export function setModel(m: string): void { MODEL = m; }
+
+export function normaliserUrl(v: string): string {
+    return /^https?:\/\//i.test(v) ? v : `http://${v}`;
+}
+
+export const OLLAMA_HOST = normaliserUrl(process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434");
+
+// URL réellement utilisée pour les requêtes : /connect la fait varier.
+export let HOST = OLLAMA_HOST;

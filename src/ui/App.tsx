@@ -87,26 +87,20 @@ export function App({ workspace }: { workspace: string }) {
         setLignes(prev => [...prev, { role, text }]);
 
     // Vrai tant qu'une ligne de réponse est "ouverte" et reçoit des fragments.
-    const streamOuvert = useRef(false);
+    const [ligneEnCours, setLigneEnCours] = useState<Ligne | null>(null);
 
     // Premier fragment → on crée la ligne ; les suivants → on la complète.
     const onChunk = (delta: string) => {
-        const premier = !streamOuvert.current;
-        streamOuvert.current = true;
-        setLignes(prev => premier
-            ? [...prev, { role: "agent", text: `🤖 ${delta}` }]
-            : [
-                ...prev.slice(0, -1),
-                { ...prev[prev.length - 1], text: prev[prev.length - 1].text + delta },
-            ]);
+        setLigneEnCours(prev => prev
+            ? { ...prev, text: prev.text + delta }
+            : { role: "agent", text: `🤖 ${delta}` });
     };
 
     // Fin de réponse : on remplace la ligne streamée par le texte complet
     // (au cas où le modèle n'aurait rien streamé, on ajoute une ligne).
     const onResponse = (t: string) => {
-        if (!streamOuvert.current) { ajouter("agent", `🤖 ${t}`); return; }
-        streamOuvert.current = false;
-        setLignes(prev => [...prev.slice(0, -1), { role: "agent", text: `🤖 ${t}` }]);
+        setLigneEnCours(null);
+        ajouter("agent", `🤖 ${t}`);
     };
 
     // Chaque nouveau tour repart d'une ligne neuve : sinon le texte d'un tour
@@ -114,21 +108,12 @@ export function App({ workspace }: { workspace: string }) {
     // compléter par les fragments du tour suivant.
     function creerCallbacks(): AgentCallbacks {
         return {
-            onTour: n => {
-                streamOuvert.current = false;
-                ajouter("tool", `\n===== TOUR ${n} =====`);
-            },
-            onTool: (n, a) => {
-                streamOuvert.current = false;
-                ajouter("tool", `🔧 ${n}(${JSON.stringify(a)})`);
-            },
+            onTour: n => { setLigneEnCours(null); ajouter("tool", `\n===== TOUR ${n} =====`); },
+            onTool: (n, a) => { setLigneEnCours(null); ajouter("tool", `🔧 ${n}(${JSON.stringify(a)})`); },
             onChunk,
             onResponse,
             onConfirm: demanderChoix,
-            onTokens: (prompt, _r, max) => {
-                setTokens(prompt);
-                setMaxTokens(max);
-            },
+            onTokens: (prompt, _r, max) => { setTokens(prompt); setMaxTokens(max); },
         };
     }
 
@@ -186,7 +171,7 @@ export function App({ workspace }: { workspace: string }) {
     return (
         <Box flexDirection="column" padding={1}>
             <Banner workspace={workspace} serveur={serveur} modele={modele} />
-            <Messages lignes={lignes} enCours={enCours} />
+            <Messages lignes={lignes} ligneEnCours={ligneEnCours} enCours={enCours} />
 
             {!enCours && !showModelPicker && (
                 <Box flexDirection="column" marginTop={1}>
