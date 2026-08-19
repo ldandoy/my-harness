@@ -1,10 +1,9 @@
-import { basename } from "node:path";
 import { execSync } from "node:child_process";
 
 export type EnvInfo = { repertoire: string; branche: string };
 
 export function obtenirInfosEnv(): EnvInfo {
-    const repertoire = basename(process.cwd());
+    const repertoire = process.cwd();
     let branche = "";
     try {
         branche = execSync(

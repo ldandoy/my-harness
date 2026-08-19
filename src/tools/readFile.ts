@@ -1,5 +1,5 @@
 import { readFile as lireFichier } from "node:fs/promises";
-import type { Tool } from "./types";
+import type { Tool } from "../types";
 import { resoudre } from "./security/sandbox";
 
 export const readFile: Tool = {

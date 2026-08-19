@@ -1,4 +1,4 @@
-import type { Tool } from "./tools/types";
+import type { Tool } from "./types";
 import { listDirectory } from "./tools/listDirectory";
 import { readFile } from "./tools/readFile";
 import { writeFile } from "./tools/writeFile";

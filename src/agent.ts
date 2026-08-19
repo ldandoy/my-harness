@@ -32,7 +32,8 @@ const CB_CONSOLE: AgentCallbacks = {
 export async function lancerAgent(
     tache: string,
     cb: AgentCallbacks = CB_CONSOLE,
-    historique: MessageLLM[] = []
+    historique: MessageLLM[] = [],
+    signal?: AbortSignal
 ): Promise<MessageLLM[]> {
     log(`lancerAgent() — "${tache}"`);
     setOnConfirm(cb.onConfirm);
@@ -71,6 +72,7 @@ export async function lancerAgent(
             messages,
             tools: schemasOllama(),
             onChunk: cb.onChunk,
+            signal,
         });
         messages.push(message);
 

@@ -1,8 +1,8 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
 import { TextInput } from "@inkjs/ui";
 import SelectInput from "ink-select-input";
-import { Messages } from "./Messages";
+import { Messages, ligneVersBloc, type Bloc } from "./Messages";
 import { lancerAgent } from "../agent";
 import type { Ligne, ConfirmChoice } from "../types";
 import { ModelPicker } from "./commands/ModelPicker";
@@ -16,11 +16,24 @@ import { obtenirInfosEnv } from "./env-info";
 import { CommandPalette } from "./commands/CommandPalette";
 import { filtrerCommandes, completion, trouverCommande } from "../commands/liste";
 import { serveurActif } from "../serveurs";
-import { MODEL } from "../config";
-import type { MessageLLM } from "../llm";
+import { MODEL, HOST, CTX_MAX } from "../config";
+import { obtenirCtxMax, type MessageLLM } from "../llm";
 
 export function App({ workspace }: { workspace: string }) {
-    const [lignes, setLignes] = useState<Ligne[]>([]);
+    // Clés stables pour les blocs static : Ink ne rejoue jamais un bloc déjà
+    // écrit, il faut donc une clé unique par ajout, pas l'index dans le tableau.
+    const compteurRef = useRef(0);
+    const prochaineCle = () => `bloc-${compteurRef.current++}`;
+
+    // La bannière est un bloc comme un autre : la rendre "live" à côté d'un
+    // <Static> qui grossit la fait redessiner sous chaque nouvelle ligne
+    // (TOUR n, sorties d'outil…) au lieu de rester fixe en haut.
+    const banniereBloc = (): Bloc => ({
+        key: prochaineCle(),
+        node: <Banner workspace={workspace} serveur={serveurActif()} modele={MODEL} />,
+    });
+
+    const [blocs, setBlocs] = useState<Bloc[]>(() => [banniereBloc()]);
     const [enCours, setEnCours] = useState(false);
     const [confirmState, setConfirmState] = useState<{
         prog: string;
@@ -34,16 +47,39 @@ export function App({ workspace }: { workspace: string }) {
 
     const [tokens, setTokens]
         = useState(0);
+    // null tant qu'on n'a pas interrogé le serveur : on préfère ne rien
+    // afficher plutôt qu'une taille de contexte par défaut trompeuse.
     const [maxTokens, setMaxTokens]
-        = useState(4096);
+        = useState<number | null>(null);
+
+    // Interroge la vraie taille de contexte du modèle actif — au montage,
+    // puis à chaque changement de serveur ou de modèle. `modele` en paramètre
+    // évite de dépendre de la config globale, mise à jour de façon asynchrone
+    // par /models (retenirModele) et donc pas toujours à jour au bon moment.
+    const rafraichirMaxTokens = async (modele: string = MODEL) => {
+        const n = await obtenirCtxMax(HOST, modele);
+        setMaxTokens(Math.min(n, CTX_MAX));
+    };
+    useEffect(() => { void rafraichirMaxTokens(); }, []);
 
     const historiqueRef = useRef<MessageLLM[]>([]);
+    const enAttenteRef = useRef<string | null>(null);
+    // Le tour en cours, pour qu'Échap puisse l'interrompre.
+    const abortRef = useRef<AbortController | null>(null);
 
-    // Serveur et modèle courants, en état local : /connect et /models les font
-    // changer en cours de session, la bannière doit suivre sans redémarrage.
-    const [serveur, setServeur] = useState(() => serveurActif());
-    const [modele, setModele] = useState(() => MODEL);
-    const rafraichirEtat = () => { setServeur(serveurActif()); setModele(MODEL); };
+    // Échap : on coupe la requête en vol et on restitue la tâche dans la
+    // saisie, prête à être corrigée plutôt que relancée telle quelle.
+    useInput((_input, key) => {
+        if (key.escape) abortRef.current?.abort();
+    }, { isActive: enCours });
+
+    // /connect change le serveur (et parfois le modèle) : on rejoue la bannière
+    // comme un nouveau bloc figé, pour que le changement reste visible dans le
+    // scrollback au lieu de muter un état invisible.
+    const rafraichirEtat = () => {
+        setBlocs(prev => [...prev, banniereBloc()]);
+        void rafraichirMaxTokens();
+    };
 
     // --- Autocomplétion des commandes ---
     const [saisie, setSaisie] = useState("");
@@ -59,7 +95,7 @@ export function App({ workspace }: { workspace: string }) {
     useInput((_input, key) => {
         if (key.upArrow) setSelection(s => (s - 1 + commandes.length) % commandes.length);
         else if (key.downArrow || key.tab) setSelection(s => (s + 1) % commandes.length);
-    }, { isActive: paletteOuverte && !enCours && !showModelPicker && !confirmState });
+    }, { isActive: paletteOuverte && !showModelPicker && !confirmState });
 
     // On place la commande sélectionnée en tête : TextInput complète toujours
     // avec la 1re suggestion qui correspond, donc la liste et le texte fantôme
@@ -84,7 +120,7 @@ export function App({ workspace }: { workspace: string }) {
     }
 
     const ajouter = (role: Ligne["role"], text: string) =>
-        setLignes(prev => [...prev, { role, text }]);
+        setBlocs(prev => [...prev, ligneVersBloc(prochaineCle(), { role, text })]);
 
     // Vrai tant qu'une ligne de réponse est "ouverte" et reçoit des fragments.
     const [ligneEnCours, setLigneEnCours] = useState<Ligne | null>(null);
@@ -108,13 +144,35 @@ export function App({ workspace }: { workspace: string }) {
     // compléter par les fragments du tour suivant.
     function creerCallbacks(): AgentCallbacks {
         return {
-            onTour: n => { setLigneEnCours(null); ajouter("tool", `\n===== TOUR ${n} =====`); },
+            onTour: () => setLigneEnCours(null),
             onTool: (n, a) => { setLigneEnCours(null); ajouter("tool", `🔧 ${n}(${JSON.stringify(a)})`); },
             onChunk,
             onResponse,
             onConfirm: demanderChoix,
             onTokens: (prompt, _r, max) => { setTokens(prompt); setMaxTokens(max); },
         };
+    }
+
+    // Un seul créneau d'attente : on peut composer la prochaine tâche pendant
+    // que l'agent tourne, elle se lance dès que le tour en cours se termine.
+    function terminerTour() {
+        setEnCours(false);
+        const suivante = enAttenteRef.current;
+        if (suivante !== null) {
+            enAttenteRef.current = null;
+            void soumettre(suivante);
+        }
+    }
+
+    // Échap a coupé la requête : on abandonne la tâche en attente (l'utilisateur
+    // va la corriger lui-même) et on remet le prompt annulé dans la saisie.
+    function annulerTour(tache: string) {
+        enAttenteRef.current = null;
+        setLigneEnCours(null);
+        ajouter("tool", "⏹ Requête annulée.");
+        setEnCours(false);
+        setSaisie(tache);
+        setCleInput(k => k + 1);
     }
 
     async function soumettre(tache: string) {
@@ -126,6 +184,13 @@ export function App({ workspace }: { workspace: string }) {
         setCleInput(k => k + 1);
 
         if (tache.trim() === "") return;
+
+        // Un tour tourne déjà : on garde la saisie pour la rejouer à la fin,
+        // au lieu de lancer un second appel concurrent à lancerAgent().
+        if (enCours) {
+            enAttenteRef.current = tache;
+            return;
+        }
 
         // Entrée sur une commande complétée mais sans son argument :
         // on rappelle l'usage au lieu de la lancer à vide.
@@ -145,41 +210,49 @@ export function App({ workspace }: { workspace: string }) {
         if (tache.trim() === "/init") {
             setEnCours(true);
             await cmdInit(creerCallbacks());
-            setEnCours(false);
+            terminerTour();
             return;
         }
 
         if (tache.trim() === "/clear") {
             historiqueRef.current = [];
-            setLignes([]);
+            setBlocs([]);
             ajouter("tool", "✓ Contexte de session réinitialisé.");
             return;
         }
 
-        // /connect peut changer serveur ET modèle : on resynchronise la bannière.
+        // /connect peut changer serveur ET modèle : on rejoue la bannière.
         if (await intercepterCommandes(tache, cb)) { rafraichirEtat(); return; }
 
         ajouter("user", `❯ ${tache}`);
         setEnCours(true);
-        historiqueRef.current = await lancerAgent(
-            tache, cb, historiqueRef.current
-        );
-        setEnCours(false);
-        log("lancerAgent() terminé");
+        const controller = new AbortController();
+        abortRef.current = controller;
+        try {
+            historiqueRef.current = await lancerAgent(
+                tache, cb, historiqueRef.current, controller.signal
+            );
+            terminerTour();
+            log("lancerAgent() terminé");
+        } catch (e) {
+            if ((e as Error).name !== "AbortError") throw e;
+            annulerTour(tache);
+        } finally {
+            abortRef.current = null;
+        }
     }
 
     return (
         <Box flexDirection="column" padding={1}>
-            <Banner workspace={workspace} serveur={serveur} modele={modele} />
-            <Messages lignes={lignes} ligneEnCours={ligneEnCours} enCours={enCours} />
+            <Messages blocs={blocs} ligneEnCours={ligneEnCours} enCours={enCours} />
 
-            {!enCours && !showModelPicker && (
+            {!showModelPicker && !confirmState && (
                 <Box flexDirection="column" marginTop={1}>
                     {/* Bordure haut/bas seulement : elle souligne la zone de
                         saisie sans l'enfermer dans un cadre. */}
                     <Box
                         borderStyle="single"
-                        borderColor="gray"
+                        borderColor="cyan"
                         borderLeft={false}
                         borderRight={false}
                         paddingX={1}
@@ -187,6 +260,7 @@ export function App({ workspace }: { workspace: string }) {
                         <Text color="cyan">❯ </Text>
                         <TextInput
                             key={cleInput}
+                            defaultValue={saisie}
                             placeholder="Quelle est ta prochaine tâche ? (/ pour les commandes)"
                             suggestions={suggestions}
                             onChange={surChangement}
@@ -201,8 +275,8 @@ export function App({ workspace }: { workspace: string }) {
                 <ModelPicker
                     onDone={choisi => {
                         ajouter("tool", `✓ Modèle changé : ${choisi}`);
-                        setModele(choisi);
                         setShowModelPicker(false);
+                        void rafraichirMaxTokens(choisi);
                     }}
                 />
             )}
@@ -229,6 +303,7 @@ export function App({ workspace }: { workspace: string }) {
                 {...envInfo}
                 tokens={tokens}
                 maxTokens={maxTokens}
+                modele={MODEL}
             />
         </Box>
     );

@@ -1,6 +1,6 @@
 import { exec as execCallback } from "node:child_process";
 import { promisify } from "node:util";
-import type { Tool } from "./types";
+import type { Tool } from "../types";
 import { TIMEOUT_MS } from "../config";
 import { verifierCommande } from "./security/garde-fou";
 import { WORKSPACE } from "./security/sandbox";
@@ -18,10 +18,7 @@ export const runCommand: Tool = {
     },
     async run(args) {
         const commande = args.command;
-
-        if (await verifierCommande(commande) === "refuse") {
-            return "REFUSÉ : commande non autorisée.";
-        }
+        await verifierCommande(commande);
 
         try {
             const { stdout, stderr } = await exec(commande, {

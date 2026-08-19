@@ -59,6 +59,8 @@ Créé automatiquement au premier « Toujours autoriser », ou manuellement.
 - [x] lorsqu'on tape / démarrer l'auto complétion sur les commandes
 - [x] Modification de l'appel à l'API, pour être compatible openAI v1
 - [x] Ajouter une mémoire de session au niveau du harness, pour que le llm ce souviennt de ce qu'on a dit avant
+- [ ] Refondre l'UI de l'app
+- [x] Modifier les infos de le status bar (branch GIt)
 
 ## Licence
 
