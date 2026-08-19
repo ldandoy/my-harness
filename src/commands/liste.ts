@@ -12,6 +12,7 @@ export const COMMANDES: Commande[] = [
     { nom: "/models", description: "Choisir le modèle du serveur actif" },
     { nom: "/connect", description: "Changer de serveur LLM", arg: "nom|url" },
     { nom: "/init", description: "Analyser le projet et générer MYHARNESS.md" },
+    { nom: "/clear", description: "Réinitialiser le contexte de la session" },
     { nom: "/planifier", description: "Découper une issue en sous-agents", arg: "fichier", argRequis: true },
     { nom: "/remember", description: "Mémoriser une information", arg: "texte", argRequis: true },
 ];
