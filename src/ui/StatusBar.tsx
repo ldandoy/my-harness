@@ -6,8 +6,8 @@ export function StatusBar({ tokens, maxTokens, repertoire, branche }: {
     tokens: number;
     maxTokens: number;
 } & EnvInfo) {
-    const ratio = tokens / maxTokens;
-    const filled = Math.round(ratio * 20);
+    const ratio = Math.min(tokens / maxTokens, 1);
+    const filled = Math.max(0, Math.min(20, Math.round(ratio * 20)));
     const color = ratio > 0.75 ? "red" : ratio > 0.5 ? "yellow" : "green";
 
     return (
