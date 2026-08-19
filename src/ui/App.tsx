@@ -17,6 +17,7 @@ import { CommandPalette } from "./commands/CommandPalette";
 import { filtrerCommandes, completion, trouverCommande } from "../commands/liste";
 import { serveurActif } from "../serveurs";
 import { MODEL } from "../config";
+import type { MessageLLM } from "../llm";
 
 export function App({ workspace }: { workspace: string }) {
     const [lignes, setLignes] = useState<Ligne[]>([]);
@@ -35,6 +36,8 @@ export function App({ workspace }: { workspace: string }) {
         = useState(0);
     const [maxTokens, setMaxTokens]
         = useState(4096);
+
+    const historiqueRef = useRef<MessageLLM[]>([]);
 
     // Serveur et modèle courants, en état local : /connect et /models les font
     // changer en cours de session, la bannière doit suivre sans redémarrage.
@@ -161,12 +164,21 @@ export function App({ workspace }: { workspace: string }) {
             return;
         }
 
+        if (tache.trim() === "/clear") {
+            historiqueRef.current = [];
+            setLignes([]);
+            ajouter("tool", "✓ Contexte de session réinitialisé.");
+            return;
+        }
+
         // /connect peut changer serveur ET modèle : on resynchronise la bannière.
         if (await intercepterCommandes(tache, cb)) { rafraichirEtat(); return; }
 
         ajouter("user", `❯ ${tache}`);
         setEnCours(true);
-        await lancerAgent(tache, cb);
+        historiqueRef.current = await lancerAgent(
+            tache, cb, historiqueRef.current
+        );
         setEnCours(false);
         log("lancerAgent() terminé");
     }

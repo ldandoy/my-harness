@@ -31,8 +31,9 @@ const CB_CONSOLE: AgentCallbacks = {
 
 export async function lancerAgent(
     tache: string,
-    cb: AgentCallbacks = CB_CONSOLE
-): Promise<void> {
+    cb: AgentCallbacks = CB_CONSOLE,
+    historique: MessageLLM[] = []
+): Promise<MessageLLM[]> {
     log(`lancerAgent() — "${tache}"`);
     setOnConfirm(cb.onConfirm);
     // const skills = await chargerSkills(".my-harness/skills");
@@ -55,6 +56,7 @@ export async function lancerAgent(
 
     let messages: MessageLLM[] = [
         { role: "system", content: system },
+        ...historique,
         { role: "user", content: tache },
     ];
 
@@ -82,7 +84,7 @@ export async function lancerAgent(
                 messages = await compacterContexte(messages);
 
             cb.onResponse?.(message.content);
-            return;
+            return messages.slice(1);
         }
 
         for (const appel of appels) {
@@ -108,4 +110,5 @@ export async function lancerAgent(
     }
 
     cb.onResponse?.("Nombre maximum de tours atteint.");
+    return messages.slice(1);
 }

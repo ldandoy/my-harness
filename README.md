@@ -55,9 +55,10 @@ Créé automatiquement au premier « Toujours autoriser », ou manuellement.
 - [x] Restructurer les `types`dans un répertoire
 - [x] Ajouter une interface graphique avec Ink
 - [x] Streaming des réponses du modèle
-- [] Percister le choix du model
+- [x] Percister le choix du model
 - [x] lorsqu'on tape / démarrer l'auto complétion sur les commandes
 - [x] Modification de l'appel à l'API, pour être compatible openAI v1
+- [x] Ajouter une mémoire de session au niveau du harness, pour que le llm ce souviennt de ce qu'on a dit avant
 
 ## Licence
 
