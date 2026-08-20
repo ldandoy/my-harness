@@ -1,0 +1,19 @@
+<svg width="800" height="160" viewBox="0 0 800 160"
+     xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="160" fill="#0f172a" rx="12"/>
+  <text x="400" y="72"
+        font-family="monospace" font-size="48" font-weight="bold"
+        fill="#8CC63F" text-anchor="middle">
+    my-harness
+  </text>
+  <text x="400" y="112"
+        font-family="monospace" font-size="18"
+        fill="#64748b" text-anchor="middle">
+    un harness agentique TypeScript sur Ollama
+  </text>
+  <text x="400" y="144"
+        font-family="monospace" font-size="13"
+        fill="#475569" text-anchor="middle">
+    boucle · outils · sandbox · garde-fous
+  </text>
+</svg>
