@@ -11,7 +11,6 @@
 </div>
 
 > Un harness agentique TypeScript minimaliste construit sur Ollama.  
-> Boucle · Outils · Sandbox · Garde-fous — en moins de 400 lignes de code.
 
 ## Prérequis
 
@@ -19,27 +18,70 @@
 - **Ollama** installé et en marche → [ollama.ai](https://ollama.ai)
 - Un modèle local : `ollama pull qwen2.5`
 
-## Installation
+## Installation et utilisation
+
+`my-harness` est une interface interactive (TUI), pas une commande one-shot : lancez-la, puis
+discutez avec l'agent directement dans le terminal. Le seul argument attendu est le **workspace**
+— le dossier dans lequel l'agent va lire/écrire des fichiers et exécuter des commandes.
+
+- `.` → utilise le dossier courant comme workspace
+- absent → crée (ou réutilise) un dossier `workspace/` dans le répertoire courant
+
+Le plus simple : pas d'installation, `npx` télécharge et lance le CLI à la volée.
+
+```bash
+npx @overconsulting/my-harness .
+```
+
+### Installation globale
+
+Pour avoir la commande `my-harness` directement disponible dans le terminal :
+
+```bash
+npm install -g @overconsulting/my-harness
+
+my-harness .
+```
+
+### Depuis les sources (contribuer au projet)
 
 ```bash
 git clone https://github.com/ldandoy/my-harness.git
 cd my-harness
 npm install
+npm run dev .
 ```
 
-## Utilisation
+## Screenshot
 
-```bash
-npm run dev "Qu'y a-t-il dans le dossier src ?"
-npm run dev "Lance les tests et corrige le code si ça échoue."
-```
+<div align="center">
+  <img src="docs/my-harness.png" alt="Aperçu de my-harness" width="700" />
+</div>
+
 
 ## Outils disponibles
 
 - `list_directory` Liste un dossier du workspace
 - `read_file` Lit un fichier du workspace
-- `write_file` Écrit un fichier dans le workspace
-- `run_command` Exécute une commande (liste blanche + confirm.)
+- `write_file` Écrit un fichier du workspace (affiche un diff avant d'écrire)
+- `run_command` Exécute une commande shell (liste blanche + confirmation), avec un mode `background` pour les process qui ne se terminent pas seuls (serveur de dev, watcher…)
+- `ask_user` Pose une question à l'utilisateur en cours de tâche et attend sa réponse avant de continuer
+
+## Commandes disponibles
+
+Tapez `/` dans l'invite pour l'auto-complétion.
+
+- `/models` Choisir le modèle du serveur actif
+- `/connect <nom|url>` Changer de serveur LLM
+- `/init` Analyser le projet et générer MYHARNESS.md
+- `/clear` Réinitialiser le contexte de la session
+- `/diff <id>` Voir le diff d'une écriture de fichier (le dernier par défaut)
+- `/save` Sauvegarder la session en cours
+- `/save-clear` Sauvegarder puis réinitialiser la session
+- `/resume <id>` Lister ou reprendre une session sauvegardée
+- `/planifier <fichier>` Découper une issue en sous-agents
+- `/remember <texte>` Mémoriser une information
+- `/exit` Quitter my-harness
 
 ## .harness/settings.json
 
