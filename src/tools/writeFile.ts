@@ -1,7 +1,8 @@
-import { writeFile as ecrireFichier, mkdir } from "node:fs/promises";
+import { writeFile as ecrireFichier, mkdir, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { Tool } from "../types";
 import { resoudre } from "./security/sandbox";
+import { emettreDiff } from "./diffs";
 
 export const writeFile: Tool = {
     name: "write_file",
@@ -16,8 +17,13 @@ export const writeFile: Tool = {
     },
     async run(args) {
         const cible = resoudre(args.path);
+        // null → le fichier n'existait pas encore (erreur de lecture = nouveau fichier).
+        const avant = await readFile(cible, "utf-8").catch(() => null);
+
         await mkdir(dirname(cible), { recursive: true });   // crée les dossiers manquants
         await ecrireFichier(cible, args.content, "utf-8");
+        emettreDiff(args.path, avant ?? "", args.content, avant === null);
+
         return `Écrit ${args.content.length} caractères dans ${args.path}`;
     },
 };

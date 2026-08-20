@@ -4,6 +4,7 @@ import { MODEL, HOST, SYSTEME, MAX_TOURS, CTX_MAX } from "./config";
 import { trouverOutil, schemasOllama } from "./registry";
 import type { AgentCallbacks } from "./types";
 import { setOnConfirm } from "./tools/security/garde-fou";
+import { setOnAskUser } from "./tools/ask";
 import { chargerSkills } from "./skills";
 import { log } from "./logger";
 import { chargerMemoire } from "./commands/remember";
@@ -27,6 +28,16 @@ const CB_CONSOLE: AgentCallbacks = {
         rl.close();
         return r === "2" ? "always" : r === "3" ? "never" : "once";
     },
+    onAskUser: async (question, choix) => {
+        const rl = createInterface({ input: process.stdin, output: process.stdout });
+        const options = choix?.length
+            ? `\n${choix.map((c, i) => `  ${i + 1}. ${c}`).join("\n")}\n> `
+            : "\n> ";
+        const r = await rl.question(`❓ ${question}${options}`);
+        rl.close();
+        if (!choix?.length) return r;
+        return choix[Number(r) - 1] ?? r;   // réponse libre en secours si le numéro est invalide
+    },
 };
 
 export async function lancerAgent(
@@ -37,6 +48,7 @@ export async function lancerAgent(
 ): Promise<MessageLLM[]> {
     log(`lancerAgent() — "${tache}"`);
     setOnConfirm(cb.onConfirm);
+    setOnAskUser(cb.onAskUser);
     // const skills = await chargerSkills(".my-harness/skills");
     const [skills, memoire, harnessConfig, maxTokens] = await Promise.all([
         chargerSkills(".my-harness/skills"),

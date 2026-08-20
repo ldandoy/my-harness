@@ -61,6 +61,10 @@ Créé automatiquement au premier « Toujours autoriser », ou manuellement.
 - [x] Ajouter une mémoire de session au niveau du harness, pour que le llm ce souviennt de ce qu'on a dit avant
 - [x] Refondre l'UI de l'app
 - [x] Modifier les infos de le status bar (branch GIt)
+- [x] Pouvoir lancer un server en background et pouvoir kill la tache.
+- [x] Lors du write afficher le diff pour valider avant l'écriture
+- [x] Ajouter le ask user, pour voir des infos voir des précisions de la par du user
+- [x] Ajouter des sessions persistantes et un système de reprise de la session
 
 ## Licence
 

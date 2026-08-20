@@ -19,6 +19,17 @@ import { serveurActif } from "../serveurs";
 import { MODEL, HOST, CTX_MAX } from "../config";
 import { obtenirCtxMax, type MessageLLM } from "../llm";
 import { formatDuree } from "../format";
+import { setJobCallbacks, arreterTousLesJobs } from "../tools/jobs";
+import { JobsPanel, type JobActif } from "./JobsPanel";
+import { setDiffCallback, trouverDiff } from "../tools/diffs";
+import { DiffView } from "./DiffView";
+import { AskUserPanel } from "./AskUserPanel";
+import { sauvegarderSession, chargerSession, listerSessions, type SessionMeta } from "../session";
+import { SessionPicker } from "./SessionPicker";
+
+// Buffer de sortie gardé par job : large mais borné, pour ne pas laisser un
+// serveur qui tourne des heures faire grossir l'état indéfiniment.
+const BUFFER_MAX = 4000;
 
 export function App({ workspace }: { workspace: string }) {
     const { exit } = useApp();
@@ -42,7 +53,15 @@ export function App({ workspace }: { workspace: string }) {
         prog: string;
         resolve: (v: ConfirmChoice) => void;
     } | null>(null);
+    // L'outil ask_user : question du modèle en attente de réponse.
+    const [askState, setAskState] = useState<{
+        question: string;
+        choix?: string[];
+        resolve: (v: string) => void;
+    } | null>(null);
     const [showModelPicker, setShowModelPicker] = useState(false);
+    // Liste à choisir pour /resume sans argument ; null = picker fermé.
+    const [resumeState, setResumeState] = useState<SessionMeta[] | null>(null);
 
     const [envInfo] = useState(
         () => obtenirInfosEnv()
@@ -78,6 +97,17 @@ export function App({ workspace }: { workspace: string }) {
 
     const historiqueRef = useRef<MessageLLM[]>([]);
     const enAttenteRef = useRef<string | null>(null);
+    // null tant que la session en cours n'a jamais été sauvegardée : un
+    // premier /save lui crée un id, les suivants mettent à jour le même fichier.
+    const sessionIdRef = useRef<string | null>(null);
+
+    // Historique des saisies (façon shell) : ↑/↓ pour rejouer les
+    // dernières tâches soumises. `null` = pas en navigation (saisie libre).
+    const historiqueSaisieRef = useRef<string[]>([]);
+    const [indexHistorique, setIndexHistorique] = useState<number | null>(null);
+    // Ce qu'on tapait avant d'appuyer sur ↑, pour le restituer si on
+    // redescend jusqu'au bout de l'historique.
+    const brouillonRef = useRef("");
     // Le tour en cours, pour qu'Échap puisse l'interrompre.
     const abortRef = useRef<AbortController | null>(null);
 
@@ -101,7 +131,11 @@ export function App({ workspace }: { workspace: string }) {
     // TextInput n'est pas contrôlé : changer cette clé le remonte et vide le champ.
     const [cleInput, setCleInput] = useState(0);
 
-    const commandes = filtrerCommandes(saisie);
+    // Pendant une navigation dans l'historique (↑/↓), on ne rouvre pas la
+    // palette même si le texte rappelé correspond à une commande : sinon la
+    // palette (et le choix qu'elle propose) apparaît sans qu'Entrée ait été
+    // pressée, et elle vole en plus les flèches à la navigation d'historique.
+    const commandes = indexHistorique === null ? filtrerCommandes(saisie) : [];
     const paletteOuverte = commandes.length > 0;
 
     // TextInput ignore ↑/↓ et Tab (il ne gère que le curseur horizontal) :
@@ -109,7 +143,7 @@ export function App({ workspace }: { workspace: string }) {
     useInput((_input, key) => {
         if (key.upArrow) setSelection(s => (s - 1 + commandes.length) % commandes.length);
         else if (key.downArrow || key.tab) setSelection(s => (s + 1) % commandes.length);
-    }, { isActive: paletteOuverte && !showModelPicker && !confirmState });
+    }, { isActive: paletteOuverte && !showModelPicker && !confirmState && !askState && !resumeState });
 
     // On place la commande sélectionnée en tête : TextInput complète toujours
     // avec la 1re suggestion qui correspond, donc la liste et le texte fantôme
@@ -127,14 +161,117 @@ export function App({ workspace }: { workspace: string }) {
         if (v === saisie) return;
         setSaisie(v);
         setSelection(0);   // la saisie a vraiment changé → on repart du premier
+        // Une vraie frappe sort de la navigation dans l'historique : la
+        // prochaine flèche haut repartira de la fin, pas d'où on était.
+        setIndexHistorique(null);
     }
+
+    // ↑/↓ hors palette : on parcourt l'historique des tâches déjà soumises,
+    // comme dans un shell. Désactivé pendant la navigation de palette pour
+    // ne pas lui voler les flèches.
+    useInput((_input, key) => {
+        const hist = historiqueSaisieRef.current;
+        if (key.upArrow) {
+            if (hist.length === 0) return;
+            if (indexHistorique === null) brouillonRef.current = saisie;
+            const suivant = indexHistorique === null
+                ? hist.length - 1
+                : Math.max(0, indexHistorique - 1);
+            setIndexHistorique(suivant);
+            setSaisie(hist[suivant]!);
+            setCleInput(k => k + 1);
+        } else if (key.downArrow) {
+            if (indexHistorique === null) return;
+            const suivant = indexHistorique + 1;
+            if (suivant >= hist.length) {
+                setIndexHistorique(null);
+                setSaisie(brouillonRef.current);
+            } else {
+                setIndexHistorique(suivant);
+                setSaisie(hist[suivant]!);
+            }
+            setCleInput(k => k + 1);
+        }
+    }, { isActive: !paletteOuverte && !showModelPicker && !confirmState && !askState && !resumeState });
 
     function demanderChoix(prog: string): Promise<ConfirmChoice> {
         return new Promise(resolve => setConfirmState({ prog, resolve }));
     }
 
+    // L'outil ask_user : le modèle attend la réponse avant de reprendre la main.
+    function demanderAvisUtilisateur(question: string, choix?: string[]): Promise<string> {
+        return new Promise(resolve => setAskState({ question, choix, resolve }));
+    }
+
     const ajouter = (role: Ligne["role"], text: string) =>
         setBlocs(prev => [...prev, ligneVersBloc(prochaineCle(), { role, text })]);
+
+    // Jobs lancés en arrière-plan (run_command background: true) : leur sortie
+    // vit ici, hors du scrollback figé, tant qu'ils tournent encore.
+    const [jobsActifs, setJobsActifs] = useState<Record<string, JobActif>>({});
+    useEffect(() => {
+        setJobCallbacks(
+            (id, commande, chunk) => setJobsActifs(prev => ({
+                ...prev,
+                [id]: {
+                    commande,
+                    sortie: ((prev[id]?.sortie ?? "") + chunk).slice(-BUFFER_MAX),
+                },
+            })),
+            (id, commande, code) => {
+                setJobsActifs(prev => {
+                    const { [id]: _fini, ...reste } = prev;
+                    return reste;
+                });
+                ajouter("tool", `🖥 ${commande} (${id}) arrêté (code ${code ?? "?"})`);
+            },
+        );
+    }, []);
+
+    // Diff d'une écriture de fichier : une simple ligne récap dans le
+    // scrollback ("📝 [3] index.html (+8 -4)") — le diff complet ne
+    // s'affiche que sur demande via /diff, pour ne pas noyer les étapes.
+    useEffect(() => {
+        setDiffCallback(entree => {
+            const suffixe = entree.nouveauFichier ? ", nouveau fichier" : "";
+            ajouter("tool",
+                `📝 [${entree.id}] ${entree.chemin} (${entree.resume}${suffixe}) — /diff ${entree.id} pour voir`);
+        });
+    }, []);
+
+    // Sauvegarde la session en cours (upsert sur sessionIdRef) — utilisé par
+    // /save et /save-clear. `null` si rien à sauvegarder.
+    async function sauvegarderSessionCourante() {
+        if (historiqueRef.current.length === 0) return null;
+        const session = await sauvegarderSession(sessionIdRef.current, historiqueRef.current);
+        sessionIdRef.current = session.id;
+        return session;
+    }
+
+    // Remet la conversation à zéro : utilisé par /clear et /save-clear. Un
+    // id de session à null force /save à en créer un nouveau au prochain appel.
+    function reinitialiserSession() {
+        historiqueRef.current = [];
+        sessionIdRef.current = null;
+        setBlocs([]);
+        arreterTousLesJobs();
+        setJobsActifs({});
+    }
+
+    // Charge une session sauvegardée (id complet, exact) et en fait la
+    // session courante — utilisé par /resume <id> et par le SessionPicker.
+    async function reprendreSession(id: string) {
+        setResumeState(null);
+        try {
+            const session = await chargerSession(id);
+            reinitialiserSession();
+            historiqueRef.current = session.messages;
+            sessionIdRef.current = session.id;
+            ajouter("tool", `↻ Session reprise — "${session.titre}" (${session.messages.length} messages)`);
+        } catch (e) {
+            ajouter("tool", `✗ ${(e as Error).message}`);
+        }
+    }
 
     // Vrai tant qu'une ligne de réponse est "ouverte" et reçoit des fragments.
     const [ligneEnCours, setLigneEnCours] = useState<Ligne | null>(null);
@@ -159,10 +296,17 @@ export function App({ workspace }: { workspace: string }) {
     function creerCallbacks(): AgentCallbacks {
         return {
             onTour: () => setLigneEnCours(null),
-            onTool: (n, a) => { setLigneEnCours(null); ajouter("tool", `🔧 ${n}(${JSON.stringify(a)})`); },
+            onTool: (n, a) => {
+                setLigneEnCours(null);
+                // write_file : le contenu complet arrive de toute façon juste après
+                // sous forme de diff, inutile (et illisible) de le dupliquer ici.
+                const affichage = n === "write_file" ? { path: a.path } : a;
+                ajouter("tool", `🔧 ${n}(${JSON.stringify(affichage)})`);
+            },
             onChunk,
             onResponse,
             onConfirm: demanderChoix,
+            onAskUser: demanderAvisUtilisateur,
             onTokens: (prompt, _r, max) => { setTokens(prompt); setMaxTokens(max); },
         };
     }
@@ -199,6 +343,12 @@ export function App({ workspace }: { workspace: string }) {
 
         if (tache.trim() === "") return;
 
+        // On garde la tâche dans l'historique de saisie (sauf répétition
+        // immédiate, pour ne pas polluer ↑ avec la même ligne en boucle).
+        const dernieres = historiqueSaisieRef.current;
+        if (dernieres[dernieres.length - 1] !== tache) dernieres.push(tache);
+        setIndexHistorique(null);
+
         // Un tour tourne déjà : on garde la saisie pour la rejouer à la fin,
         // au lieu de lancer un second appel concurrent à lancerAgent().
         if (enCours) {
@@ -228,14 +378,65 @@ export function App({ workspace }: { workspace: string }) {
             return;
         }
 
+        if (tache.trim() === "/diff" || tache.trim().startsWith("/diff ")) {
+            const argument = tache.trim().slice("/diff".length).trim();
+            const id = argument === "" ? undefined : Number(argument);
+            const entree = trouverDiff(id);
+            if (!entree) {
+                ajouter("tool", argument === ""
+                    ? "Aucune écriture de fichier dans cette session pour l'instant."
+                    : `Aucun diff #${argument} dans cette session.`);
+            } else {
+                setBlocs(prev => [...prev, {
+                    key: prochaineCle(),
+                    node: <DiffView chemin={entree.chemin} lignes={entree.lignes}
+                        nouveauFichier={entree.nouveauFichier} />,
+                }]);
+            }
+            return;
+        }
+
         if (tache.trim() === "/clear") {
-            historiqueRef.current = [];
-            setBlocs([]);
+            reinitialiserSession();
             ajouter("tool", "✓ Contexte de session réinitialisé.");
             return;
         }
 
+        if (tache.trim() === "/save") {
+            const session = await sauvegarderSessionCourante();
+            ajouter("tool", session
+                ? `✓ Session sauvegardée — id ${session.id.slice(0, 8)}, "${session.titre}"`
+                : "Rien à sauvegarder pour l'instant.");
+            return;
+        }
+
+        if (tache.trim() === "/save-clear") {
+            const session = await sauvegarderSessionCourante();
+            reinitialiserSession();
+            ajouter("tool", session
+                ? `✓ Sauvegardée (id ${session.id.slice(0, 8)}) puis contexte réinitialisé.`
+                : "✓ Contexte réinitialisé (rien à sauvegarder).");
+            return;
+        }
+
+        if (tache.trim() === "/resume" || tache.trim().startsWith("/resume ")) {
+            const argument = tache.trim().slice("/resume".length).trim();
+
+            if (argument === "") {
+                const sessions = await listerSessions();
+                if (sessions.length === 0) ajouter("tool", "Aucune session sauvegardée.");
+                else setResumeState(sessions);   // ouvre le SessionPicker
+                return;
+            }
+
+            // Id tapé directement (ex: repris d'un historique de commandes) :
+            // toujours possible, en plus du picker.
+            await reprendreSession(argument);
+            return;
+        }
+
         if (tache.trim() === "/exit") {
+            arreterTousLesJobs();
             exit();
             return;
         }
@@ -266,8 +467,9 @@ export function App({ workspace }: { workspace: string }) {
     return (
         <Box flexDirection="column" padding={1}>
             <Messages blocs={blocs} ligneEnCours={ligneEnCours} enCours={enCours} />
+            <JobsPanel jobs={jobsActifs} />
 
-            {!showModelPicker && !confirmState && (
+            {!showModelPicker && !confirmState && !askState && !resumeState && (
                 <Box flexDirection="column" marginTop={1}>
                     {/* Bordure haut/bas seulement : elle souligne la zone de
                         saisie sans l'enfermer dans un cadre. */}
@@ -318,6 +520,22 @@ export function App({ workspace }: { workspace: string }) {
                         }}
                     />
                 </Box>
+            )}
+
+            {askState && (
+                <AskUserPanel
+                    question={askState.question}
+                    choix={askState.choix}
+                    onReponse={reponse => {
+                        ajouter("tool", `❓ ${askState.question} → ${reponse}`);
+                        askState.resolve(reponse);
+                        setAskState(null);
+                    }}
+                />
+            )}
+
+            {resumeState && (
+                <SessionPicker sessions={resumeState} onChoisir={id => void reprendreSession(id)} />
             )}
 
             <StatusBar

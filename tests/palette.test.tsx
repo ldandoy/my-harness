@@ -87,7 +87,7 @@ describe("palette de commandes", () => {
         const t = monter();
         await t.taper("/");
         await t.taper(BAS);           // sélection déplacée…
-        await t.taper("re");          // …puis on filtre : retour au 1er match
+        await t.taper("rem");         // …puis on filtre : retour au 1er match
         expect(t.selection()).toBe("/remember");
         t.unmount();
     });
@@ -108,7 +108,7 @@ describe("palette de commandes", () => {
 
     it("la palette se referme quand on tape l'argument", async () => {
         const t = monter();
-        await t.taper("/re");
+        await t.taper("/rem");
         expect(t.selection()).toBe("/remember");
         await t.taper(" ");
         expect(t.selection()).toBeUndefined();

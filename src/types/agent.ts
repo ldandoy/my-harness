@@ -9,6 +9,9 @@ export type AgentCallbacks = {
     // ignorent onChunk (compaction, /planifier) gardent le même comportement.
     onResponse?: (text: string) => void;
     onConfirm?: (prog: string) => Promise<ConfirmChoice>;
+    // L'outil ask_user : question posée par le modèle, éventuellement avec
+    // des choix proposés ; renvoie la réponse (texte libre ou choix retenu).
+    onAskUser?: (question: string, choix?: string[]) => Promise<string>;
     systemPrompt?: string;
     onTokens?: (prompt: number, response: number, max: number) => void;
 };

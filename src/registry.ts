@@ -3,9 +3,10 @@ import { listDirectory } from "./tools/listDirectory";
 import { readFile } from "./tools/readFile";
 import { writeFile } from "./tools/writeFile";
 import { runCommand } from "./tools/runCommand";
+import { askUser } from "./tools/askUser";
 
 // 1. La liste de tous les outils. Ajouter un outil = ajouter une ligne ici.
-export const TOOLS: Tool[] = [listDirectory, readFile, writeFile, runCommand];
+export const TOOLS: Tool[] = [listDirectory, readFile, writeFile, runCommand, askUser];
 
 // 2. Retrouver un outil par son nom, pour l'exécuter.
 const PAR_NOM = new Map(TOOLS.map((t) => [t.name, t]));
